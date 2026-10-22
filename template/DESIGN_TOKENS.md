@@ -48,3 +48,17 @@ team 1132 (белый фон) | booking 1473 (форма на всю ширин�
 - Mobile Admin (360x1345): Top Header 224 (профиль ER + Today/Week + оранжевая FAB «Create Booking»),
   список «Today's bookings» карточками (время, клиент, услуга, мастер, бейдж статуса),
   Bottom Navigation 84px: Home, Schedule, Bookings, (+ Profile)
+
+## Детали сетки (из дерева узлов Astra.fig)
+- Контейнер секций Desktop: 1680px (падды 120px по бокам), межколоночные отступы ~32px
+- Services Grid: 5 карточек 310x420, r=24, фон #FFFFFF; заголовок секции eyebrow #D4A3A3 + H2 Playfair 48px
+- Team: 3 карточки ~539x481 (фото 539x400, r сверху; имя Playfair SemiBold 24 + специализация Inter 14)
+- Booking: форма — белая карточка 1200x866 r=24; поля в 2 колонки (524px): Service/Master, Date/Time;
+  Name full-width; Phone+Last name? (Name*, затем строка 2×524 = Phone* и Last Name), Email full-width;
+  поля: label 12px SemiBold + input 49px, border #E5E1DA r=12; кнопка Confirm Booking — pill (r=100), #1F1F1F;
+  справа Info-блоки Opening Hours / Location (фон #F9F7F2)
+- Footer: #1F1F1F, лого+описание, Navigation/Legal колонки, разделитель, копирайт + белая Phone Button 219x60 (pill) с иконкой
+- Admin Dashboard: Sidebar 248 (#FFFFFF) [Brand 40px logo, Nav items 42px, active bg #F1EFE9 r~10, Sidebar Note #F1EFE9];
+  Main 1672 pad 32: TopHeader (Search 420x48 белый r-pill + Create Manual Booking графит + профиль),
+  Overview Row KPI 4 карточки (число 32px Bold), Schedule Section 1608x400 (сетка Master x время),
+  Recent Bookings 1608x504 (таблица + фильтр статусов чипами)
