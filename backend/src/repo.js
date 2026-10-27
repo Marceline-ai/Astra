@@ -23,6 +23,7 @@ await db.read();
 const EMPTY = {
   users: [], clients: [], masters: [], categories: [], services: [],
   master_services: [], schedules: [], schedule_exceptions: [], bookings: [], login_attempts: [],
+  audit_logs: [],
 };
 db.data = { ...EMPTY, ...db.data };
 db.data._sequence ??= {};
@@ -356,6 +357,35 @@ export async function deleteBooking(id) {
   if (db.data.bookings.length === before) return false;
   await db.write();
   return true;
+}
+
+// ------------------------------------------------------------------ аудит (журнал действий сотрудников)
+// Раньше при миграции на json-server логирование действий администраторов было
+// потеряно — теперь каждое важное действие пишется в коллекцию audit_logs.
+export async function addAuditLog({ user_id, actor_name, role, action, entity, entity_id, details, ip }) {
+  return insert('audit_logs', {
+    user_id: user_id ?? null,
+    actor_name: str(actor_name),
+    role: str(role),
+    action: str(action),
+    entity: str(entity),
+    entity_id: entity_id == null ? null : num(entity_id),
+    details: details == null ? null : (typeof details === 'string' ? details : JSON.stringify(details)),
+    ip: str(ip),
+    created_at: new Date().toISOString(),
+  });
+}
+
+export async function listAuditLogs({ limit = 100 } = {}) {
+  return [...db.data.audit_logs]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, Math.max(1, Math.min(500, toInt(limit) || 100)))
+    .map(r => structuredClone(r));
+}
+
+export async function clearAuditLogs() {
+  db.data.audit_logs = [];
+  await db.write();
 }
 
 // ------------------------------------------------------------------ dashboard

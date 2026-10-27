@@ -80,7 +80,77 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="card overflow-hidden">
+        <div className="px-5 py-4 border-b border-line flex justify-between items-center">
+          <h2 className="font-semibold">Журнал действий (логирование)</h2>
+        </div>
+        <AuditLog />
+      </div>
+
       <BookingModal open={modal} onClose={() => setModal(false)} meta={meta} />
+    </div>
+  );
+}
+
+const ACTION_LABELS = {
+  login: 'Вход',
+  login_failed: 'Неудачный вход',
+  logout: 'Выход',
+  booking_created: 'Запись создана',
+  booking_updated: 'Запись изменена',
+  booking_deleted: 'Запись удалена',
+  category_created: 'Категория создана',
+  category_updated: 'Категория изменена',
+  category_deleted: 'Категория удалена',
+  service_created: 'Услуга создана',
+  service_updated: 'Услуга изменена',
+  service_deleted: 'Услуга удалена',
+  master_updated: 'Мастер изменён',
+  schedule_updated: 'График изменён',
+  exception_created: 'Исключение графика создано',
+  exception_deleted: 'Исключение графика удалено',
+  staff_created: 'Сотрудник создан',
+  audit_cleared: 'Журнал очищен',
+};
+
+function AuditLog() {
+  const [logs, setLogs] = useState(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    api.auditLogs().then(setLogs).catch((e) => setErr(e.message || 'Не удалось загрузить журнал'));
+  }, []);
+
+  if (err) return <p className="px-5 py-6 text-sm text-red-600">{err}</p>;
+  if (!logs) return <p className="px-5 py-6 text-sm text-muted">Загрузка журнала…</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-cream/60 text-left text-xs uppercase tracking-wide text-muted">
+          <tr>
+            <th className="px-5 py-3 whitespace-nowrap">Когда</th>
+            <th className="px-5 py-3">Кто</th>
+            <th className="px-5 py-3">Действие</th>
+            <th className="px-5 py-3 hidden md:table-cell">Объект</th>
+            <th className="px-5 py-3">Подробности</th>
+          </tr>
+        </thead>
+        <tbody>
+          {logs.map((l) => (
+            <tr key={l.id} className="border-t border-line hover:bg-cream/40">
+              <td className="px-5 py-3 whitespace-nowrap">{fmtDateTime(l.created_at)}</td>
+              <td className="px-5 py-3 whitespace-nowrap">{l.actor_name}<span className="block text-xs text-muted">{l.role}</span></td>
+              <td className="px-5 py-3 whitespace-nowrap">{ACTION_LABELS[l.action] ?? l.action}</td>
+              <td className="px-5 py-3 whitespace-nowrap hidden md:table-cell">{l.entity}{l.entity_id != null ? ` #${l.entity_id}` : ''}</td>
+              <td className="px-5 py-3 text-muted">{l.details ?? '—'}</td>
+            </tr>
+          ))}
+          {!logs.length && (
+            <tr><td colSpan="5" className="px-5 py-8 text-center text-muted">Действий пока нет</td></tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

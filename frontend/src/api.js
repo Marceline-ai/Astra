@@ -61,4 +61,7 @@ export const api = {
   createException: (id, p) => request(`/admin/settings/masters/${id}/exceptions`, { method: 'POST', body: JSON.stringify(p) }),
   deleteException: (id) => request(`/admin/settings/exceptions/${id}`, { method: 'DELETE' }),
   createStaff: (p) => request('/admin/settings/staff', { method: 'POST', body: JSON.stringify(p) }),
+
+  // Журнал действий (админ-логирование)
+  auditLogs: () => request('/admin/audit-logs'),
 };
