@@ -17,6 +17,7 @@ JSON-файл `backend/db/db.json` в формате **json-server** (колле
 | schedule_exceptions | schedule_exceptions |
 | bookings         | bookings              |
 | login_attempts   | login_attempts        |
+| (аудит)          | audit_logs            |
 
 TIMESTAMPTZ → ISO-строки UTC, DECIMAL → number, SERIAL → авто-id (`_sequence` в db.json).
 

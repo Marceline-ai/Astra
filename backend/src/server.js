@@ -42,6 +42,22 @@ function validationError(parsed) {
   return map;
 }
 
+// Логирование действий администраторов (журнал audit_logs в db.json).
+// Ошибки записи в журнал не должны ронять основной запрос.
+async function audit(req, action, entity, entity_id, details) {
+  try {
+    await repo.addAuditLog({
+      user_id: req.user?.sub ?? null,
+      actor_name: req.user?.name ?? 'anonymous',
+      role: req.user?.role ?? 'public',
+      action, entity, entity_id, details,
+      ip: req.ip,
+    });
+  } catch (e) {
+    console.error('[audit] failed to write log:', e.message);
+  }
+}
+
 function bookingStart(dateStr, timeStr) {
   return new Date(`${dateStr}T${timeStr}:00Z`); // храним как UTC ISO-строки, слоты считаются в UTC-минутах суток
 }
@@ -121,6 +137,8 @@ app.post('/api/public/bookings', async (req, res) => {
     start_at: start.toISOString(), end_at: end.toISOString(),
     status: 'pending', total_price: svc.price, source: 'web',
   });
+  await audit({ user: { name: `${d.firstname} ${d.lastname ?? ''}`.trim(), role: 'client' }, ip: req.ip },
+    'booking_created', 'booking', b.id, `Онлайн-запись: ${svc.name}, ${d.date} ${d.time}`);
   res.status(201).json({
     ok: true,
     message: 'Спасибо! Мы свяжемся с вами для подтверждения',
@@ -160,11 +178,13 @@ async function adminLoginHandler(req, res) {
   const u = await verifyCredentials(key, password);
   if (!u || !ROLES_STAFF.includes(u.role)) {
     await repo.recordAttempt(key, req.ip, false);
+    await audit({ user: { name: String(login).trim(), role: 'anonymous' }, ip: req.ip }, 'login_failed', 'session', null, `Неудачная попытка входа: ${key}`);
     return res.status(401).json({ error: 'bad_credentials', message: 'Неверный логин или пароль' });
   }
   await repo.recordAttempt(key, req.ip, true);
   const token = signToken(u);
   res.cookie('astra_token', token, { httpOnly: true, sameSite: 'lax', secure: !!process.env.COOKIE_SECURE, maxAge: 8 * 3600 * 1000 });
+  await audit({ user: { sub: u.id, name: `${u.firstname} ${u.lastname}`, role: u.role }, ip: req.ip }, 'login', 'session', u.id, 'Вход в админ-панель');
   res.json({ ok: true, user: { id: u.id, name: `${u.firstname} ${u.lastname}`, role: u.role, email: u.email } });
 }
 
@@ -172,7 +192,8 @@ app.post('/api/admin/login', adminLoginHandler);
 // Совместимость со старым путём авторизации: /api/auth/login — алиас на тот же обработчик.
 app.post('/api/auth/login', adminLoginHandler);
 
-app.post('/api/admin/logout', (_req, res) => {
+app.post('/api/admin/logout', authMiddleware, async (req, res) => {
+  await audit(req, 'logout', 'session', req.user.sub, 'Выход из админ-панели');
   res.clearCookie('astra_token');
   res.json({ ok: true });
 });
@@ -227,6 +248,7 @@ app.post('/api/admin/bookings', ...A, async (req, res) => {
     comment: d.comment ?? null, discount_percent: d.discount_percent, is_prepaid: d.is_prepaid,
     source: 'admin',
   });
+  await audit(req, 'booking_created', 'booking', b.id, `Запись создана администратором (${d.date} ${d.time})${conflict ? ' поверх занятого слота' : ''}`);
   res.status(201).json({ ok: true, warning: conflict ? 'Создано поверх занятого слота' : null, booking: await buildBookingPayload(b) });
 });
 
@@ -242,12 +264,14 @@ app.patch('/api/admin/bookings/:id', ...A, async (req, res) => {
   if (!Object.keys(patch).length) return res.status(422).json({ error: 'nothing_to_update' });
   const b = await repo.updateBooking(req.params.id, patch);
   if (!b) return res.status(404).json({ error: 'not_found' });
+  await audit(req, 'booking_updated', 'booking', b.id, `Изменено: ${Object.entries(patch).filter(([k]) => k !== 'updated_at').map(([k, v]) => `${k}=${v}`).join(', ')}`);
   res.json(b);
 });
 
 app.delete('/api/admin/bookings/:id', ...A, async (req, res) => {
   const ok = await repo.deleteBooking(req.params.id);
   if (!ok) return res.status(404).json({ error: 'not_found' });
+  await audit(req, 'booking_deleted', 'booking', req.params.id, 'Запись удалена');
   res.json({ ok: true });
 });
 
@@ -261,30 +285,36 @@ app.get('/api/admin/schedule', ...A, async (req, res) => {
 app.get('/api/admin/settings/categories', ...A, async (_r, res) => res.json(await repo.listCategories()));
 app.post('/api/admin/settings/categories', ...A, async (req, res) => {
   const c = await repo.createCategory(req.body ?? {});
+  await audit(req, 'category_created', 'category', c.id, `Категория «${c.name}»`);
   res.status(201).json(c);
 });
 app.patch('/api/admin/settings/categories/:id', ...A, async (req, res) => {
   const c = await repo.updateCategory(req.params.id, req.body ?? {});
   if (!c) return res.status(404).json({ error: 'not_found' });
+  await audit(req, 'category_updated', 'category', c.id, `Категория «${c.name}»`);
   res.json(c);
 });
 app.delete('/api/admin/settings/categories/:id', ...A, async (req, res) => {
   await repo.deleteCategory(req.params.id);
+  await audit(req, 'category_deleted', 'category', req.params.id, 'Категория удалена');
   res.json({ ok: true });
 });
 
 app.get('/api/admin/settings/services', ...A, async (_r, res) => res.json(await repo.listServices()));
 app.post('/api/admin/settings/services', ...A, async (req, res) => {
   const s = await repo.createService(req.body ?? {});
+  await audit(req, 'service_created', 'service', s.id, `Услуга «${s.name}»`);
   res.status(201).json(s);
 });
 app.patch('/api/admin/settings/services/:id', ...A, async (req, res) => {
   const s = await repo.updateService(req.params.id, req.body ?? {});
   if (!s) return res.status(404).json({ error: 'not_found' });
+  await audit(req, 'service_updated', 'service', s.id, `Услуга «${s.name}»`);
   res.json(s);
 });
 app.delete('/api/admin/settings/services/:id', ...A, async (req, res) => {
   await repo.deleteService(req.params.id);
+  await audit(req, 'service_deleted', 'service', req.params.id, 'Услуга удалена');
   res.json({ ok: true });
 });
 
@@ -292,23 +322,28 @@ app.get('/api/admin/settings/masters', ...A, async (_r, res) => res.json(await r
 app.patch('/api/admin/settings/masters/:id', ...A, async (req, res) => {
   const m = await repo.updateMaster(req.params.id, req.body ?? {});
   if (!m) return res.status(404).json({ error: 'not_found' });
+  await audit(req, 'master_updated', 'master', m.id, 'Профиль/услуги мастера изменены');
   res.json(m);
 });
 // График работы мастера
 app.get('/api/admin/settings/masters/:id/schedules', ...A, async (req, res) =>
   res.json(repo.getSchedules(req.params.id)));
 app.put('/api/admin/settings/masters/:id/schedules', ...A, async (req, res) => {
-  res.json(await repo.putSchedules(req.params.id, req.body?.schedules ?? []));
+  const list = await repo.putSchedules(req.params.id, req.body?.schedules ?? []);
+  await audit(req, 'schedule_updated', 'schedule', req.params.id, `График мастера #${req.params.id}: ${list.length} дн.`);
+  res.json(list);
 });
 // Исключения
 app.get('/api/admin/settings/masters/:id/exceptions', ...A, async (req, res) =>
   res.json(repo.getExceptions(req.params.id)));
 app.post('/api/admin/settings/masters/:id/exceptions', ...A, async (req, res) => {
   const e = await repo.createException(req.params.id, req.body ?? {});
+  await audit(req, 'exception_created', 'schedule_exception', e.id, `${e.exception_date} working=${e.is_working} ${e.reason ?? ''}`);
   res.status(201).json(e);
 });
 app.delete('/api/admin/settings/exceptions/:id', ...A, async (req, res) => {
   await repo.deleteException(req.params.id);
+  await audit(req, 'exception_deleted', 'schedule_exception', req.params.id, 'Исключение из графика удалено');
   res.json({ ok: true });
 });
 
@@ -323,7 +358,20 @@ app.post('/api/admin/settings/staff', authMiddleware, requireRole('super_admin',
   if (!['manager', 'admin', 'super_admin', 'master'].includes(role)) return res.status(422).json({ error: 'bad_role' });
   const hash = await hashPassword(password || 'changeme');
   const u = await repo.createStaff({ role, firstname, lastname, email, phone, password_hash: hash, speciality: req.body.speciality ?? null });
+  await audit(req, 'staff_created', 'user', u.id, `Сотрудник ${firstname} ${lastname ?? ''} (${role})`);
   res.status(201).json({ id: u.id });
+});
+
+// Журнал действий сотрудников (админка). Просмотр доступен всем ролям staff,
+// очистка — только super_admin.
+app.get('/api/admin/audit-logs', ...A, async (req, res) => {
+  res.json(await repo.listAuditLogs({ limit: req.query.limit }));
+});
+
+app.delete('/api/admin/audit-logs', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  await repo.clearAuditLogs();
+  await audit(req, 'audit_cleared', 'audit_log', null, 'Журнал действий очищен');
+  res.json({ ok: true });
 });
 
 app.get('/health', (_req, res) => res.json({ ok: true, db: repo.MODE_LABEL }));

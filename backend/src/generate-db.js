@@ -143,6 +143,7 @@ const db = {
   schedule_exceptions,
   bookings,
   login_attempts,
+  audit_logs: [],
 };
 
 fs.mkdirSync(DB_DIR, { recursive: true });
