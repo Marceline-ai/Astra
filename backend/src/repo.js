@@ -1,0 +1,412 @@
+// repo.js — слой доступа к данным для json-server/lowdb (миграция с PostgreSQL/pg-mem).
+// Хранилище: backend/db/db.json — тот же файл можно поднимать чистым json-server:
+//   npx json-server --watch db/db.json --port 3000
+// Публичный интерфейс (сигнатуры) совпадает со старым сервером на SQL.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSONFile } from 'lowdb/node';
+import { Low } from 'lowdb';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const DB_FILE = path.join(__dirname, '..', 'db', 'db.json');
+
+if (!fs.existsSync(DB_FILE)) {
+  console.error(`[repo] Не найден ${DB_FILE}. Запустите миграцию: node src/generate-db.js`);
+  process.exit(1);
+}
+
+const adapter = new JSONFile(DB_FILE);
+export const db = new Low(adapter, {});
+await db.read();
+
+const EMPTY = {
+  users: [], clients: [], masters: [], categories: [], services: [],
+  master_services: [], schedules: [], schedule_exceptions: [], bookings: [], login_attempts: [],
+};
+db.data = { ...EMPTY, ...db.data };
+db.data._sequence ??= {};
+
+export const MODE_LABEL = 'json-server';
+
+// ------------------------------------------------------------------ helpers
+const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+const eq = (a, b) => String(a) === String(b);
+const toInt = (v) => Math.round(Number(v));
+const isoDay = (d) => d.toISOString().slice(0, 10);
+const DOW_LIST = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+function dowOf(dateStr) { return DOW_LIST[new Date(dateStr + 'T12:00:00').getDay()]; }
+
+export function toDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+export function toMin(t) {
+  if (typeof t === 'string') { const [h, m] = t.slice(0, 5).split(':'); return +h * 60 + +m; }
+  return t.getHours() * 60 + t.getMinutes();
+}
+export function minToHHMM(min) {
+  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+}
+
+function nextId(collection) {
+  const seq = db.data._sequence;
+  const maxExisting = db.data[collection].reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
+  seq[collection] = Math.max((seq[collection] ?? 0) + 1, maxExisting + 1);
+  return seq[collection];
+}
+
+async function insert(collection, data) {
+  const rec = { id: nextId(collection), ...data };
+  db.data[collection].push(rec);
+  await db.write();
+  return structuredClone(rec);
+}
+
+const find = (collection, pred = () => true) => db.data[collection].filter(pred);
+const byId = (collection, id) => db.data[collection].find(r => eq(r.id, id)) ?? null;
+const userOf = (userId) => db.data.users.find(u => eq(u.id, userId)) ?? null;
+
+// ------------------------------------------------------------------ public reads
+export async function listCategories() {
+  return [...db.data.categories].sort((a, b) => a.sort_order - b.sort_order);
+}
+
+export async function listServices() {
+  return [...db.data.services]
+    .filter(s => s.is_active)
+    .sort((a, b) => (a.category_id ?? 0) - (b.category_id ?? 0) || a.name.localeCompare(b.name));
+}
+
+export async function listPublicMasters() {
+  return db.data.masters
+    .map(m => ({ master: m, u: userOf(m.user_id) }))
+    .filter(({ u }) => u && u.is_active)
+    .map(({ master, u }) => ({ id: master.id, firstname: u.firstname, lastname: u.lastname, speciality: master.speciality, bio: master.bio, photo_url: master.photo_url, rating_avg: master.rating_avg }))
+    .sort((a, b) => a.id - b.id);
+}
+
+export async function mastersForService(serviceId) {
+  return db.data.master_services
+    .filter(ms => eq(ms.service_id, serviceId))
+    .map(ms => ({ ms, m: byId('masters', ms.master_id) }))
+    .filter(({ m }) => m)
+    .map(({ m, ms }) => ({ m, u: userOf(m.user_id) }))
+    .filter(({ u }) => u && u.is_active)
+    .map(({ m, u }) => ({ id: m.id, firstname: u.firstname, lastname: u.lastname, speciality: m.speciality, photo_url: m.photo_url }));
+}
+
+export async function getService(id) {
+  return byId('services', id);
+}
+export async function getActiveService(id) {
+  const s = byId('services', id);
+  return s && s.is_active ? s : null;
+}
+export const masterHasService = (masterId, serviceId) =>
+  db.data.master_services.some(ms => eq(ms.master_id, masterId) && eq(ms.service_id, serviceId));
+
+// ------------------------------------------------------------------ schedule logic
+export async function getWorkingIntervals(masterId, dateStr) {
+  const exc = find('schedule_exceptions', e => eq(e.master_id, masterId) && eq(e.exception_date, dateStr));
+  if (exc.length > 0) {
+    const e = exc[0];
+    if (!e.is_working) return [];
+    if (e.start_time && e.end_time) return [{ start: toMin(e.start_time), end: toMin(e.end_time), break: null }];
+  }
+  const sched = find('schedules', s => eq(s.master_id, masterId) && s.day_of_week === dowOf(dateStr));
+  if (sched.length === 0) return [];
+  const s = sched[0];
+  const breakRange = s.break_start && s.break_end ? { start: toMin(s.break_start), end: toMin(s.break_end) } : null;
+  return [{ start: toMin(s.start_time), end: toMin(s.end_time), break: breakRange }];
+}
+
+function dayMinutes(ts, dateStr) {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  const utcDate = isoDay(d);
+  const base = utcDate === dateStr ? 0 : (new Date(utcDate) > new Date(dateStr) ? 24 * 60 : -24 * 60);
+  return base + d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+export async function getBusyIntervals(masterId, dateStr) {
+  const dayStart = new Date(dateStr + 'T00:00:00Z').getTime();
+  const rows = find('bookings', b =>
+    eq(b.master_id, masterId) && b.status !== 'canceled' &&
+    new Date(b.end_at).getTime() > dayStart && new Date(b.start_at).getTime() < dayStart + 86400000);
+  return rows.map(r => ({ start: dayMinutes(r.start_at, dateStr), end: dayMinutes(r.end_at, dateStr), bookingId: r.id }));
+}
+
+export const SLOT_STEP_MIN = 30;
+
+export async function getFreeSlots(masterId, dateStr, durationMin, nowMin = -1) {
+  const intervals = await getWorkingIntervals(masterId, dateStr);
+  if (intervals.length === 0) return [];
+  const busy = await getBusyIntervals(masterId, dateStr);
+  const slots = [];
+  for (const iv of intervals) {
+    const segs = [];
+    if (iv.break) {
+      if (iv.start < iv.break.start) segs.push([iv.start, iv.break.start]);
+      if (iv.break.end < iv.end) segs.push([iv.break.end, iv.end]);
+    } else segs.push([iv.start, iv.end]);
+    for (const [s, e] of segs) {
+      for (let t = Math.ceil(s / SLOT_STEP_MIN) * SLOT_STEP_MIN; t + durationMin <= e; t += SLOT_STEP_MIN) {
+        if (t < nowMin) continue;
+        const overlap = busy.some(b => !(b.end <= t || b.start >= t + durationMin));
+        if (!overlap) slots.push(minToHHMM(t));
+      }
+    }
+  }
+  return slots;
+}
+
+export async function findConflict(masterId, startAt, endAt, ignoreBookingId = null) {
+  const conf = find('bookings', b =>
+    eq(b.master_id, masterId) && b.status !== 'canceled' &&
+    new Date(b.start_at) < new Date(endAt) && new Date(b.end_at) > new Date(startAt) &&
+    !eq(b.id, ignoreBookingId));
+  return conf.length > 0 ? conf[0] : null;
+}
+
+export async function getScheduleGrid(dateStr, masters) {
+  const out = [];
+  for (const m of masters) {
+    const intervals = await getWorkingIntervals(m.id, dateStr);
+    const busy = await getBusyIntervals(m.id, dateStr);
+    out.push({ master: m, intervals, busy });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ auth / users
+export async function findUserByLogin(login) {
+  const key = login.trim().toLowerCase();
+  return db.data.users.find(u => u.is_active && (eq(u.email, key) || eq(u.email, login) || eq(u.phone, login))) ?? null;
+}
+export async function getUserById(id) {
+  return byId('users', id);
+}
+export async function createUser(data) {
+  const now = new Date().toISOString();
+  return insert('users', { role: 'client', is_active: true, created_at: now, updated_at: now, ...data });
+}
+export async function createClient(userId) {
+  return insert('clients', { user_id: userId, loyalty_balance: 0, notes: null });
+}
+export async function clientByUserId(userId) {
+  return find('clients', c => eq(c.user_id, userId))[0] ?? null;
+}
+
+export async function recordAttempt(loginKey, ip, success) {
+  await insert('login_attempts', { login_key: loginKey, ip: ip ?? '', success, attempted_at: new Date().toISOString() });
+  if (success) {
+    db.data.login_attempts = find('login_attempts', a => !eq(a.login_key, loginKey));
+    await db.write();
+  }
+}
+
+const MAX_ATTEMPTS = 5;
+const LOCK_WINDOW_MIN = 15;
+export async function checkBruteForce(loginKey) {
+  const cutoff = Date.now() - LOCK_WINDOW_MIN * 60000;
+  const fails = find('login_attempts', a => a.login_key === loginKey && !a.success && new Date(a.attempted_at).getTime() > cutoff);
+  return fails.length >= MAX_ATTEMPTS;
+}
+
+// ------------------------------------------------------------------ clients (ensure)
+export async function ensureClient({ firstname, lastname, phone, email }) {
+  let cl = null;
+  const byPhone = db.data.users.find(u => eq(u.phone, phone));
+  if (byPhone) cl = clientByUserId(byPhone.id);
+  if (!cl && email) {
+    const byEmail = db.data.users.find(u => eq(u.email, email));
+    if (byEmail) cl = clientByUserId(byEmail.id);
+  }
+  if (cl) return cl;
+  const u = await createUser({ role: 'client', firstname, lastname: lastname ?? '', phone, email: email || null, password_hash: '!' });
+  return insert('clients', { user_id: u.id, loyalty_balance: 0, notes: null });
+}
+
+// ------------------------------------------------------------------ bookings
+function decorateBooking(b) {
+  const svc = byId('services', b.service_id) ?? {};
+  const cat = svc.category_id ? byId('categories', svc.category_id) : null;
+  const m = byId('masters', b.master_id) ?? {};
+  const mu = userOf(m.user_id) ?? {};
+  const cl = byId('clients', b.client_id) ?? {};
+  const cu = userOf(cl.user_id) ?? {};
+  return {
+    ...structuredClone(b),
+    service_name: svc.name, duration_minutes: svc.duration_minutes, category_name: cat?.name ?? null,
+    speciality: m.speciality, master_fn: mu.firstname, master_ln: mu.lastname, master_photo: m.photo_url,
+    client_fn: cu.firstname, client_ln: cu.lastname, client_phone: cu.phone, client_email: cu.email,
+  };
+}
+
+export async function createBooking(data) {
+  const now = new Date().toISOString();
+  return insert('bookings', { status: 'pending', comment: null, discount_percent: 0, is_prepaid: false, source: 'web', created_at: now, updated_at: now, ...data });
+}
+export async function getBooking(id) {
+  return byId('bookings', id);
+}
+export async function getBookingPayload(id) {
+  const b = byId('bookings', id);
+  return b ? decorateBooking(b) : null;
+}
+
+export async function listBookings({ date, master_id, status } = {}) {
+  let rows = [...db.data.bookings];
+  if (date) {
+    const d0 = new Date(date + 'T00:00:00Z').getTime(), d1 = d0 + 864e5;
+    rows = rows.filter(b => new Date(b.start_at).getTime() >= d0 && new Date(b.start_at).getTime() < d1);
+  }
+  if (master_id) rows = rows.filter(b => eq(b.master_id, master_id));
+  if (status) rows = rows.filter(b => b.status === status);
+  rows.sort((a, b) => new Date(b.start_at) - new Date(a.start_at));
+  return rows.slice(0, 200).map(decorateBooking);
+}
+
+export async function updateBooking(id, patch) {
+  const b = byId('bookings', id);
+  if (!b) return null;
+  Object.assign(b, patch, { updated_at: new Date().toISOString() });
+  await db.write();
+  return decorateBooking(b);
+}
+
+export async function deleteBooking(id) {
+  const before = db.data.bookings.length;
+  db.data.bookings = find('bookings', b => !eq(b.id, id));
+  if (db.data.bookings.length === before) return false;
+  await db.write();
+  return true;
+}
+
+// ------------------------------------------------------------------ dashboard
+export async function getDashboard() {
+  const today = toDateStr(new Date());
+  const B = db.data.bookings;
+  const scheduled = B.filter(b => ['pending', 'confirmed'].includes(b.status) && isoDay(new Date(b.start_at)) >= today).length;
+  const masters = db.data.masters.length;
+  const waitlist = B.filter(b => b.status === 'pending').length;
+  const confirmedShare = B.length ? Math.round(100 * B.filter(b => ['confirmed', 'completed'].includes(b.status)).length / B.length) : 0;
+  const recent = [...B]
+    .sort((a, b) => new Date(b.created_at ?? 0) - new Date(a.created_at ?? 0))
+    .slice(0, 10)
+    .map(b => {
+      const d = decorateBooking(b);
+      return { id: d.id, start_at: d.start_at, status: d.status, service_name: d.service_name, master_name: `${d.master_fn} ${d.master_ln}`, client_name: `${d.client_fn} ${d.client_ln}`, client_phone: d.client_phone };
+    });
+  return { scheduled, masters, waitlist, confirmed_share: confirmedShare, recent };
+}
+
+// ------------------------------------------------------------------ admin schedule view
+export async function getAdminSchedule(date) {
+  const masters = db.data.masters
+    .map(m => ({ m, u: userOf(m.user_id) }))
+    .filter(({ u }) => u && u.is_active)
+    .map(({ m, u }) => ({ id: m.id, firstname: u.firstname, lastname: u.lastname, speciality: m.speciality, photo_url: m.photo_url }));
+  const grid = await getScheduleGrid(date, masters);
+  const d0 = new Date(date + 'T00:00:00Z').getTime(), d1 = d0 + 864e5;
+  const bookings = find('bookings', b => b.status !== 'canceled' && new Date(b.start_at).getTime() >= d0 && new Date(b.start_at).getTime() < d1)
+    .map(b => ({ ...structuredClone(b), service_name: byId('services', b.service_id)?.name }));
+  return { date, grid, bookings };
+}
+
+// ------------------------------------------------------------------ settings: categories
+export async function createCategory({ name, description, image_url, sort_order }) {
+  return insert('categories', { name, description: description ?? null, image_url: image_url ?? null, sort_order: sort_order ?? 0 });
+}
+export async function updateCategory(id, data) {
+  const c = byId('categories', id);
+  if (!c) return null;
+  Object.assign(c, { name: data.name, description: data.description ?? null, image_url: data.image_url ?? null, sort_order: data.sort_order ?? 0 });
+  await db.write();
+  return structuredClone(c);
+}
+export async function deleteCategory(id) {
+  db.data.categories = find('categories', c => !eq(c.id, id));
+  for (const s of find('services', s => eq(s.category_id, id))) s.category_id = null;
+  await db.write();
+}
+
+// ------------------------------------------------------------------ settings: services
+export async function createService({ category_id, name, description, price, duration_minutes, is_active, master_ids }) {
+  const s = await insert('services', { category_id: category_id ?? null, name, description: description ?? null, price: toInt(price), duration_minutes: toInt(duration_minutes), is_active: is_active ?? true });
+  for (const mid of master_ids ?? []) if (!masterHasService(mid, s.id)) db.data.master_services.push({ master_id: num(mid), service_id: s.id });
+  await db.write();
+  return s;
+}
+export async function updateService(id, body) {
+  const old = byId('services', id);
+  if (!old) return null;
+  Object.assign(old, {
+    category_id: body.category_id ?? old.category_id,
+    name: body.name ?? old.name,
+    description: body.description ?? old.description,
+    price: body.price !== undefined ? toInt(body.price) : old.price,
+    duration_minutes: body.duration_minutes !== undefined ? toInt(body.duration_minutes) : old.duration_minutes,
+    is_active: body.is_active ?? old.is_active,
+  });
+  if (body.master_ids) {
+    db.data.master_services = find('master_services', ms => !eq(ms.service_id, id));
+    for (const mid of body.master_ids) db.data.master_services.push({ master_id: num(mid), service_id: num(id) });
+  }
+  await db.write();
+  return structuredClone(old);
+}
+export async function deleteService(id) {
+  db.data.services = find('services', s => !eq(s.id, id));
+  db.data.master_services = find('master_services', ms => !eq(ms.service_id, id));
+  await db.write();
+}
+
+// ------------------------------------------------------------------ settings: masters
+export async function listAdminMasters() {
+  return db.data.masters.map(m => {
+    const u = userOf(m.user_id) ?? {};
+    return { ...structuredClone(m), firstname: u.firstname, lastname: u.lastname, email: u.email, phone: u.phone, is_active: u.is_active };
+  });
+}
+export async function updateMaster(id, body) {
+  const m = byId('masters', id);
+  if (!m) return null;
+  Object.assign(m, { speciality: body.speciality ?? null, bio: body.bio ?? null, photo_url: body.photo_url ?? null });
+  if (body.service_ids) {
+    db.data.master_services = find('master_services', ms => !eq(ms.master_id, id));
+    for (const sid of body.service_ids) db.data.master_services.push({ master_id: num(id), service_id: num(sid) });
+  }
+  await db.write();
+  return structuredClone(m);
+}
+
+// schedules
+export const getSchedules = (masterId) => find('schedules', s => eq(s.master_id, masterId));
+export async function putSchedules(masterId, list) {
+  db.data.schedules = find('schedules', s => !eq(s.master_id, masterId));
+  for (const s of list ?? []) {
+    db.data.schedules.push({ id: nextId('schedules'), master_id: num(masterId), day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time, break_start: s.break_start ?? null, break_end: s.break_end ?? null });
+  }
+  await db.write();
+  return getSchedules(masterId);
+}
+
+// exceptions
+export const getExceptions = (masterId) => find('schedule_exceptions', e => eq(e.master_id, masterId));
+export async function createException(masterId, body) {
+  return insert('schedule_exceptions', {
+    master_id: num(masterId), exception_date: body.exception_date, is_working: body.is_working ?? false,
+    start_time: body.start_time ?? null, end_time: body.end_time ?? null, reason: body.reason ?? null,
+  });
+}
+export async function deleteException(id) {
+  db.data.schedule_exceptions = find('schedule_exceptions', e => !eq(e.id, id));
+  await db.write();
+}
+
+// ------------------------------------------------------------------ staff
+export async function createStaff({ role, firstname, lastname, email, phone, password_hash, speciality }) {
+  const u = await createUser({ role, firstname, lastname: lastname ?? '', email: email || null, phone: phone || null, password_hash });
+  if (role === 'master') await insert('masters', { user_id: u.id, speciality: speciality ?? null, bio: null, photo_url: null, rating_avg: 0 });
+  return u;
+}
