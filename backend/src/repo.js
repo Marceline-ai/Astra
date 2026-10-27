@@ -71,6 +71,15 @@ const userOf = (userId) => db.data.users.find(u => eq(u.id, userId)) ?? null;
 // поля могут отсутствовать/быть null — нормализуем, чтобы фронтенд всегда
 // получал полный набор полей; строки приводим к string, числа — к number.
 const str = (v) => (v === undefined || v === null ? '' : String(v));
+
+// Совместимость со старыми данными: до миграции на json-server картинки
+// хранились по пути /images/..., но в frontend/public таких файлов нет
+// (ассеты лежат в /assets). Нормализуем URL «на лету», чтобы изображения
+// отображались и в старых db.json, и после перегенерации.
+export function normalizeAssetUrl(u) {
+  const s = str(u);
+  return s.startsWith('/images/') ? '/assets/' + s.slice('/images/'.length) : s;
+}
 const numOrNull = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
 
 // Время из db.json: 'HH:MM', 'HH:MM:SS' или ISO-строка → Date в локальном ТЗ
@@ -94,7 +103,7 @@ function normalizeCategory(c) {
     id: numOrNull(c.id),
     name: str(c.name),
     description: str(c.description ?? c.descr),
-    image_url: str(c.image_url),
+    image_url: normalizeAssetUrl(c.image_url),
     sort_order: numOrNull(c.sort_order) ?? 0,
   };
 }
@@ -119,7 +128,7 @@ function normalizeMasterRow(m, u) {
     lastname: str(u?.lastname ?? m.lastname),
     speciality: str(m.speciality),
     bio: str(m.bio),
-    photo_url: str(m.photo_url ?? u?.avatar_url),
+    photo_url: normalizeAssetUrl(m.photo_url ?? u?.avatar_url),
     rating_avg: numOrNull(m.rating_avg) ?? 0,
   };
 }
@@ -143,10 +152,15 @@ export async function listPublicMasters() {
 }
 
 export async function mastersForService(serviceId) {
+  // Важно: master_services в db.json могут не иметь поля id — сортировка по
+  // ms.id давала NaN и пустой список. Фильтруем только по service_id,
+  // исключаем дубли мастеров.
+  const seen = new Set();
   return db.data.master_services
     .filter(ms => eq(ms.service_id, serviceId))
     .map(ms => byId('masters', ms.master_id))
     .filter(Boolean)
+    .filter(m => !seen.has(m.id) && seen.add(m.id))
     .map(m => normalizeMasterRow(m, userOf(m.user_id)))
     .filter(m => m.id !== null && m.firstname !== '')
     .map(({ id, firstname, lastname, speciality, photo_url }) => ({ id, firstname, lastname, speciality, photo_url }));
