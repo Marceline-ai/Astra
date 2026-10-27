@@ -67,39 +67,97 @@ const byId = (collection, id) => db.data[collection].find(r => eq(r.id, id)) ?? 
 const userOf = (userId) => db.data.users.find(u => eq(u.id, userId)) ?? null;
 
 // ------------------------------------------------------------------ public reads
+// Приведение записей db.json к каноничной форме (миграция с PostgreSQL):
+// поля могут отсутствовать/быть null — нормализуем, чтобы фронтенд всегда
+// получал полный набор полей; строки приводим к string, числа — к number.
+const str = (v) => (v === undefined || v === null ? '' : String(v));
+const numOrNull = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+
+// Время из db.json: 'HH:MM', 'HH:MM:SS' или ISO-строка → Date в локальном ТЗ
+// (совместимо со старым postgres TIMESTAMPTZ). Нужен для schedules/exceptions.
+export function jsonTimeToDate(v) {
+  if (v instanceof Date) return v;
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  let m;
+  if ((m = s.match(/^(\d{1,2}):(\d{2})(:\d{2})?$/))) {
+    const d = new Date();
+    d.setHours(+m[1], +m[2], 0, 0);
+    return d;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function normalizeCategory(c) {
+  return {
+    id: numOrNull(c.id),
+    name: str(c.name),
+    description: str(c.description ?? c.descr),
+    image_url: str(c.image_url),
+    sort_order: numOrNull(c.sort_order) ?? 0,
+  };
+}
+
+function normalizeService(s) {
+  return {
+    id: numOrNull(s.id),
+    category_id: numOrNull(s.category_id),
+    name: str(s.name),
+    description: s.description == null ? null : str(s.description),
+    price: numOrNull(s.price) ?? 0,
+    duration_minutes: numOrNull(s.duration_minutes) ?? 0,
+    is_active: s.is_active !== false, // json-запись без флага считается активной
+  };
+}
+
+function normalizeMasterRow(m, u) {
+  return {
+    id: numOrNull(m.id),
+    user_id: numOrNull(m.user_id),
+    firstname: str(u?.firstname ?? m.firstname),
+    lastname: str(u?.lastname ?? m.lastname),
+    speciality: str(m.speciality),
+    bio: str(m.bio),
+    photo_url: str(m.photo_url ?? u?.avatar_url),
+    rating_avg: numOrNull(m.rating_avg) ?? 0,
+  };
+}
+
 export async function listCategories() {
-  return [...db.data.categories].sort((a, b) => a.sort_order - b.sort_order);
+  return [...db.data.categories].map(normalizeCategory).sort((a, b) => a.sort_order - b.sort_order);
 }
 
 export async function listServices() {
   return [...db.data.services]
+    .map(normalizeService)
     .filter(s => s.is_active)
     .sort((a, b) => (a.category_id ?? 0) - (b.category_id ?? 0) || a.name.localeCompare(b.name));
 }
 
 export async function listPublicMasters() {
   return db.data.masters
-    .map(m => ({ master: m, u: userOf(m.user_id) }))
-    .filter(({ u }) => u && u.is_active)
-    .map(({ master, u }) => ({ id: master.id, firstname: u.firstname, lastname: u.lastname, speciality: master.speciality, bio: master.bio, photo_url: master.photo_url, rating_avg: master.rating_avg }))
+    .map(m => normalizeMasterRow(m, userOf(m.user_id)))
+    .filter(m => m.id !== null && m.firstname !== '') // мастер привязан к активному пользователю
     .sort((a, b) => a.id - b.id);
 }
 
 export async function mastersForService(serviceId) {
   return db.data.master_services
     .filter(ms => eq(ms.service_id, serviceId))
-    .map(ms => ({ ms, m: byId('masters', ms.master_id) }))
-    .filter(({ m }) => m)
-    .map(({ m, ms }) => ({ m, u: userOf(m.user_id) }))
-    .filter(({ u }) => u && u.is_active)
-    .map(({ m, u }) => ({ id: m.id, firstname: u.firstname, lastname: u.lastname, speciality: m.speciality, photo_url: m.photo_url }));
+    .map(ms => byId('masters', ms.master_id))
+    .filter(Boolean)
+    .map(m => normalizeMasterRow(m, userOf(m.user_id)))
+    .filter(m => m.id !== null && m.firstname !== '')
+    .map(({ id, firstname, lastname, speciality, photo_url }) => ({ id, firstname, lastname, speciality, photo_url }));
 }
 
 export async function getService(id) {
-  return byId('services', id);
+  const s = byId('services', id);
+  return s ? normalizeService(s) : null;
 }
 export async function getActiveService(id) {
-  const s = byId('services', id);
+  const s = await getService(id);
   return s && s.is_active ? s : null;
 }
 export const masterHasService = (masterId, serviceId) =>
@@ -111,13 +169,17 @@ export async function getWorkingIntervals(masterId, dateStr) {
   if (exc.length > 0) {
     const e = exc[0];
     if (!e.is_working) return [];
-    if (e.start_time && e.end_time) return [{ start: toMin(e.start_time), end: toMin(e.end_time), break: null }];
+    const s = jsonTimeToDate(e.start_time), t = jsonTimeToDate(e.end_time);
+    if (s && t) return [{ start: toMin(s), end: toMin(t), break: null }];
   }
   const sched = find('schedules', s => eq(s.master_id, masterId) && s.day_of_week === dowOf(dateStr));
   if (sched.length === 0) return [];
   const s = sched[0];
-  const breakRange = s.break_start && s.break_end ? { start: toMin(s.break_start), end: toMin(s.break_end) } : null;
-  return [{ start: toMin(s.start_time), end: toMin(s.end_time), break: breakRange }];
+  const start = jsonTimeToDate(s.start_time), end = jsonTimeToDate(s.end_time);
+  if (!start || !end) return [];
+  const bs = jsonTimeToDate(s.break_start), be = jsonTimeToDate(s.break_end);
+  const breakRange = bs && be ? { start: toMin(bs), end: toMin(be) } : null;
+  return [{ start: toMin(start), end: toMin(end), break: breakRange }];
 }
 
 function dayMinutes(ts, dateStr) {
@@ -365,8 +427,36 @@ export async function deleteService(id) {
 export async function listAdminMasters() {
   return db.data.masters.map(m => {
     const u = userOf(m.user_id) ?? {};
-    return { ...structuredClone(m), firstname: u.firstname, lastname: u.lastname, email: u.email, phone: u.phone, is_active: u.is_active };
+    return { ...structuredClone(m), firstname: str(u.firstname ?? m.firstname), lastname: str(u.lastname ?? m.lastname), email: str(u.email), phone: str(u.phone), is_active: u.is_active !== false };
   });
+}
+
+// ------------------------------------------------------------------ clients (админ-список)
+export async function listClients({ search } = {}) {
+  const q = str(search).trim().toLowerCase();
+  const bookingsByClient = {};
+  for (const b of db.data.bookings) bookingsByClient[b.client_id] = (bookingsByClient[b.client_id] ?? 0) + 1;
+  let rows = db.data.clients.map(c => {
+    const u = userOf(c.user_id) ?? {};
+    return {
+      id: numOrNull(c.id),
+      user_id: numOrNull(c.user_id),
+      firstname: str(u.firstname),
+      lastname: str(u.lastname),
+      email: str(u.email),
+      phone: str(u.phone),
+      loyalty_balance: numOrNull(c.loyalty_balance) ?? 0,
+      notes: c.notes == null ? null : str(c.notes),
+      bookings_count: bookingsByClient[c.id] ?? 0,
+      created_at: u.created_at ?? null,
+    };
+  });
+  if (q) {
+    rows = rows.filter(r =>
+      `${r.firstname} ${r.lastname}`.toLowerCase().includes(q) ||
+      r.email.toLowerCase().includes(q) || r.phone.includes(q));
+  }
+  return rows.sort((a, b) => a.id - b.id);
 }
 export async function updateMaster(id, body) {
   const m = byId('masters', id);

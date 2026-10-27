@@ -65,6 +65,12 @@ app.get('/api/public/masters', async (_req, res) => {
   res.json(await repo.listPublicMasters());
 });
 
+// Клиенты (база после миграции на json-server содержала коллекцию clients,
+// но эндпоинт был потерян — фронтент не получал данные).
+app.get('/api/public/clients', async (_req, res) => {
+  res.json(await repo.listClients());
+});
+
 // Dropdown «Мастер» зависит от выбранной «Услуги» (ТЗ п.3.2)
 app.get('/api/public/masters-for-service/:serviceId', async (req, res) => {
   res.json(await repo.mastersForService(req.params.serviceId));
@@ -123,6 +129,30 @@ app.post('/api/public/bookings', async (req, res) => {
 });
 
 // ================================================================ ADMIN API
+
+// CORS для standalone-режима: фронтенд (vite :5173 / статика) может обращаться
+// к API напрямую, а не только через прокси. Credentials обязателен —
+// авторизация через httpOnly-cookie.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// Совместимость со старым путём авторизации (/api/auth/login):
+// админка или старый билд могли ходить именно сюда — теперь это алиас на /api/admin/login.
+app.post('/api/auth/login', (req, res, next) => {
+  const body = req.body ?? {};
+  if (body.login === undefined && body.email !== undefined) req.body = { ...body, login: body.email };
+  next();
+}, app.handle ? undefined : undefined);
 app.post('/api/admin/login', async (req, res) => {
   const { login, password } = req.body ?? {};
   if (!login || !password) return res.status(422).json({ error: 'validation', message: 'Введите логин и пароль' });
