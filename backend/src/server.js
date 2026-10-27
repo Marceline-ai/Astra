@@ -146,15 +146,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Совместимость со старым путём авторизации (/api/auth/login):
-// админка или старый билд могли ходить именно сюда — теперь это алиас на /api/admin/login.
-app.post('/api/auth/login', (req, res, next) => {
-  const body = req.body ?? {};
-  if (body.login === undefined && body.email !== undefined) req.body = { ...body, login: body.email };
-  next();
-}, app.handle ? undefined : undefined);
-app.post('/api/admin/login', async (req, res) => {
-  const { login, password } = req.body ?? {};
+// Ядро логики входа сотрудников (используется и для /api/admin/login,
+// и для алиаса /api/auth/login — раньше заглушка в этом месте роняла весь сервер
+// с ошибкой "argument handler must be a function").
+async function adminLoginHandler(req, res) {
+  let { login, password } = req.body ?? {};
+  if (!login && req.body?.email) login = req.body.email; // алиас /api/auth/login присылает email
   if (!login || !password) return res.status(422).json({ error: 'validation', message: 'Введите логин и пароль' });
   const key = String(login).trim().toLowerCase();
   if (await repo.checkBruteForce(key)) {
@@ -169,7 +166,11 @@ app.post('/api/admin/login', async (req, res) => {
   const token = signToken(u);
   res.cookie('astra_token', token, { httpOnly: true, sameSite: 'lax', secure: !!process.env.COOKIE_SECURE, maxAge: 8 * 3600 * 1000 });
   res.json({ ok: true, user: { id: u.id, name: `${u.firstname} ${u.lastname}`, role: u.role, email: u.email } });
-});
+}
+
+app.post('/api/admin/login', adminLoginHandler);
+// Совместимость со старым путём авторизации: /api/auth/login — алиас на тот же обработчик.
+app.post('/api/auth/login', adminLoginHandler);
 
 app.post('/api/admin/logout', (_req, res) => {
   res.clearCookie('astra_token');
@@ -311,6 +312,11 @@ app.delete('/api/admin/settings/exceptions/:id', ...A, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Список клиентов (админка) — с поиском по имени/email/телефону
+app.get('/api/admin/settings/clients', ...A, async (req, res) => {
+  res.json(await repo.listClients({ search: req.query.search }));
+});
+
 // Управление сотрудниками (права: super_admin)
 app.post('/api/admin/settings/staff', authMiddleware, requireRole('super_admin', 'admin'), async (req, res) => {
   const { role, firstname, lastname, email, phone, password } = req.body;
@@ -322,5 +328,8 @@ app.post('/api/admin/settings/staff', authMiddleware, requireRole('super_admin',
 
 app.get('/health', (_req, res) => res.json({ ok: true, db: repo.MODE_LABEL }));
 
-const PORT = process.env.PORT || 4000;
+// Порт по умолчанию — 3000: фронтенд (vite proxy) и json-server ждут API именно там.
+// В Windows переменная окружения может прийти пустой/мусорной — берём 3000 как фолбэк.
+const RAW_PORT = Number.parseInt(process.env.PORT ?? '', 10);
+const PORT = Number.isFinite(RAW_PORT) && RAW_PORT > 0 ? RAW_PORT : 3000;
 app.listen(PORT, () => console.log(`Astra API on :${PORT} (db=${repo.MODE_LABEL}, file=${repo.DB_FILE})`));
