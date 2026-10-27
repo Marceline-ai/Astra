@@ -5,10 +5,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
-    "dev": "node src/server.js",
+    "dev": "nodemon src/server.js",
     "migrate": "node src/generate-db.js",
     "seed": "node src/generate-db.js",
-    "json-server": "json-server --watch db/db.json --port ${PORT:-3000} --routes src/json-server.routes.json"
+    "json-server": "json-server --watch db/db.json --port 3000 --routes src/json-server.routes.json",
+    "start:json-server": "json-server --watch db/db.json --port 3000 --routes src/json-server.routes.json"
   },
   "keywords": [],
   "author": "",
@@ -20,10 +21,12 @@
     "cookie-parser": "^1.4.7",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
-    "json-server": "^0.17.1",
     "jsonwebtoken": "^9.0.3",
     "lowdb": "^7.0.1",
     "nodemon": "^3.1.14",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "json-server": "^0.17.1"
   }
 }
