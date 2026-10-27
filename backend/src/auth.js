@@ -1,7 +1,8 @@
 // Auth: JWT в httpOnly-cookie, bcrypt-хэши, анти-брутфорс (ТЗ п.4.1, 5.3)
+// Миграция на json-server/lowdb: доступ к данным через repo.js (db.json)
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { query, one } from './db.js';
+import { findUserByLogin, checkBruteForce as repoCheckBruteForce, recordAttempt as repoRecordAttempt } from './repo.js';
 
 const SECRET = process.env.JWT_SECRET || 'astra-dev-secret-change-me';
 const MAX_ATTEMPTS = 5;
@@ -34,42 +35,10 @@ export function requireRole(...roles) {
   };
 }
 
-async function recentFailCount(loginKey) {
-  const rows = await query(
-    `SELECT success FROM login_attempts WHERE login_key = $1 AND attempted_at > now() - interval '${LOCK_WINDOW_MIN} minutes'`,
-    [loginKey]
-  );
-  // pg-mem может не поддержать interval — fallback:
-  if (rows === undefined) return 0;
-  return rows.filter(r => !r.success).length;
-}
-
-export async function checkBruteForce(loginKey) {
-  let fails;
-  try {
-    fails = await recentFailCount(loginKey);
-  } catch {
-    const rows = await query(`SELECT success FROM login_attempts WHERE login_key = $1`, [loginKey]);
-    fails = rows.filter(r => !r.success).slice(-MAX_ATTEMPTS).length;
-  }
-  return fails >= MAX_ATTEMPTS;
-}
-
-export async function recordAttempt(loginKey, ip, success) {
-  await query(
-    `INSERT INTO login_attempts (login_key, ip, success, attempted_at) VALUES ($1,$2,$3, now())`,
-    [loginKey, ip ?? '', success]
-  );
-  if (success) {
-    await query(`DELETE FROM login_attempts WHERE login_key = $1`, [loginKey]).catch(() => {});
-  }
-}
+export { repoCheckBruteForce as checkBruteForce, repoRecordAttempt as recordAttempt };
 
 export async function verifyCredentials(login, password) {
-  const u = await one(
-    `SELECT * FROM users WHERE (email = $1 OR phone = $1) AND is_active = TRUE`,
-    [login.trim().toLowerCase()]
-  );
+  const u = await findUserByLogin(login);
   if (!u) return null;
   const ok = await bcrypt.compare(password, u.password_hash);
   return ok ? u : null;
