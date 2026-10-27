@@ -10,7 +10,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_DIR = path.join(__dirname, '..', 'db');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
-const A = '/images'; // относительные URL к ассетам макета (раздаёт фронтенд)
+// Относительные URL к ассетам макета. Файлы лежат в frontend/public/assets —
+// именно оттуда их раздаёт vite (в dev) и dist (в prod). Ранее использовался
+// путь /images, которого в public нет — из-за этого картинки услуг и мастеров
+// не отображались на сайте (404).
+const A = '/assets';
 
 // ---- helpers ----
 const hash = (pw) => bcrypt.hashSync(pw, 10);
