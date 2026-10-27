@@ -3,10 +3,10 @@
   "version": "2.0.0",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node src/json-server.js",
+    "dev": "nodemon src/json-server.js",
     "migrate": "node src/generate-db.js",
-    "json-server": "json-server --watch db/db.json --port 3000 --routes src/json-server.routes.json"
+    "json-server": "node src/json-server.js"
   },
   "keywords": [],
   "author": "",

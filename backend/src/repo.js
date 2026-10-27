@@ -152,19 +152,34 @@ export async function listPublicMasters() {
     .sort((a, b) => a.id - b.id);
 }
 
+// Совместимость форм записи связей: master_services | service_masters | services.master_ids
+const linksForService = (serviceId) => {
+  const out = [];
+  for (const c of ['master_services', 'service_masters']) {
+    for (const r of db.data[c] ?? []) {
+      if (eq(r.service_id, serviceId)) out.push(num(r.master_id));
+    }
+  }
+  const svc = db.data.services.find(s => eq(s.id, serviceId));
+  for (const mid of svc?.master_ids ?? []) out.push(num(mid));
+  return out.filter((v) => v !== null);
+};
+
 export async function mastersForService(serviceId) {
   // Важно: master_services в db.json могут не иметь поля id — сортировка по
   // ms.id давала NaN и пустой список. Фильтруем только по service_id,
-  // исключаем дубли мастеров.
+  // исключаем дубли мастеров. Если прямых связей нет (например, база поднята
+  // «чистым» json-server без таблицы связей), возвращаем всех активных мастеров,
+  // чтобы dropdown «Мастер» никогда не оставался пустым.
   const seen = new Set();
-  return db.data.master_services
-    .filter(ms => eq(ms.service_id, serviceId))
-    .map(ms => byId('masters', ms.master_id))
+  const ids = linksForService(serviceId).filter((mid) => !seen.has(mid) && seen.add(mid));
+  const rows = (ids.length > 0 ? ids.map((mid) => byId('masters', mid)) : db.data.masters)
     .filter(Boolean)
-    .filter(m => !seen.has(m.id) && seen.add(m.id))
     .map(m => normalizeMasterRow(m, userOf(m.user_id)))
     .filter(m => m.id !== null && m.firstname !== '')
+    .sort((a, b) => a.id - b.id)
     .map(({ id, firstname, lastname, speciality, photo_url }) => ({ id, firstname, lastname, speciality, photo_url }));
+  return rows;
 }
 
 export async function getService(id) {
@@ -175,8 +190,11 @@ export async function getActiveService(id) {
   const s = await getService(id);
   return s && s.is_active ? s : null;
 }
-export const masterHasService = (masterId, serviceId) =>
-  db.data.master_services.some(ms => eq(ms.master_id, masterId) && eq(ms.service_id, serviceId));
+export const masterHasService = (masterId, serviceId) => {
+  const ids = linksForService(serviceId);
+  if (ids.length === 0) return byId('masters', masterId) !== null; // связей нет — допускаем всех мастеров
+  return ids.includes(num(masterId));
+};
 
 // ------------------------------------------------------------------ schedule logic
 export async function getWorkingIntervals(masterId, dateStr) {

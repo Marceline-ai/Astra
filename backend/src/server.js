@@ -5,7 +5,12 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import * as repo from './repo.js';
 import { toDateStr } from './repo.js';
 import { signToken, authMiddleware, requireRole, verifyCredentials, recordAttempt, checkBruteForce, hashPassword, ROLES_STAFF } from './auth.js';
@@ -376,8 +381,43 @@ app.delete('/api/admin/audit-logs', authMiddleware, requireRole('super_admin'), 
 
 app.get('/health', (_req, res) => res.json({ ok: true, db: repo.MODE_LABEL }));
 
+// Совместимость со старыми путями авторизации: фронтенд мог вызывать
+// /api/login (без префикса admin/auth) — раньше это давало 404 на админ-сайте.
+app.post('/api/login', adminLoginHandler);
+
+// Статика собранного фронтенда (frontend/dist): позволяет запускать и сайт,
+// и админку с одного порта (:3000) без vite/прокси. index.html отдаётся для
+// любых не-API GET-запросов (SPA-fallback), чтобы прямые переходы на /admin/login
+// или перезагрузка страницы не приводили к 404.
+const distCandidates = [
+  path.resolve(process.cwd(), '..', 'frontend', 'dist'),
+  path.resolve(__dirname, '..', '..', 'frontend', 'dist'),
+];
+const DIST_DIR = distCandidates.find((p) => fs.existsSync(path.join(p, 'index.html')));
+if (DIST_DIR) {
+  app.use(express.static(DIST_DIR));
+  console.log(`[server] static frontend from ${DIST_DIR}`);
+} else {
+  console.warn('[server] frontend/dist not found — run "npm run build" in frontend/ (static serving disabled)');
+}
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.startsWith('/api') || req.path === '/health') return next();
+  if (!DIST_DIR) return next();
+  res.sendFile(path.join(DIST_DIR, 'index.html'));
+});
+
+export { app };
+
 // Порт по умолчанию — 3000: фронтенд (vite proxy) и json-server ждут API именно там.
 // В Windows переменная окружения может прийти пустой/мусорной — берём 3000 как фолбэк.
 const RAW_PORT = Number.parseInt(process.env.PORT ?? '', 10);
 const PORT = Number.isFinite(RAW_PORT) && RAW_PORT > 0 ? RAW_PORT : 3000;
-app.listen(PORT, () => console.log(`Astra API on :${PORT} (db=${repo.MODE_LABEL}, file=${repo.DB_FILE})`));
+
+// Слушаем порт только при прямом запуске (node src/server.js / npm run dev).
+// Если сервер импортируется из src/json-server.js (объединённый запуск
+// API + базы json-server в одном процессе), listen делает тот файл —
+// иначе получится EADDRINUSE внутри одного приложения.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+if (invokedDirectly) {
+  app.listen(PORT, () => console.log(`Astra API on :${PORT} (db=${repo.MODE_LABEL}, file=${repo.DB_FILE})`));
+}
