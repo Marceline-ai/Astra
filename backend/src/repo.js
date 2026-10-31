@@ -308,16 +308,51 @@ export async function checkBruteForce(loginKey) {
 }
 
 // ------------------------------------------------------------------ clients (ensure)
+// Нормализация телефона для поиска: "+7 (912) 345-67-89" и "89123456789" -> "79123456789".
+// Без этого два разных клиента с одинаковым номером в разном формате склеивались
+// в одного (в админке две записи отображались как один человек).
+export function normalizePhone(v) {
+  let d = str(v).replace(/\D/g, '');
+  if (!d) return '';
+  if (d.length === 11) d = d.replace(/^8/, '7');
+  return d;
+}
+
 export async function ensureClient({ firstname, lastname, phone, email }) {
+  // 1) Ищем существующего КЛИЕНТА по нормализованному телефону.
+  const np = normalizePhone(phone);
   let cl = null;
-  const byPhone = db.data.users.find(u => eq(u.phone, phone));
-  if (byPhone) cl = clientByUserId(byPhone.id);
+  if (np) {
+    for (const c of db.data.clients) {
+      const cu = userOf(c.user_id);
+      if (cu && cu.role === 'client' && normalizePhone(cu.phone) === np) { cl = c; break; }
+    }
+  }
+  // 2) По email — только если это уже клиент (сотрудник с таким email не «превращается» в клиента).
   if (!cl && email) {
-    const byEmail = db.data.users.find(u => eq(u.email, email));
+    const key = str(email).trim().toLowerCase();
+    const byEmail = db.data.users.find(u => u.role === 'client' && eq(str(u.email).toLowerCase(), key));
     if (byEmail) cl = clientByUserId(byEmail.id);
   }
-  if (cl) return cl;
-  const u = await createUser({ role: 'client', firstname, lastname: lastname ?? '', phone, email: email || null, password_hash: '!' });
+  if (cl) {
+    // Если данные пришли точнее прежних — обновляем, чтобы в админке было актуальное имя/фамилия.
+    const cu = userOf(cl.user_id);
+    if (cu) {
+      const fn = str(firstname).trim(), ln = str(lastname).trim();
+      if (fn && cu.firstname !== fn) cu.firstname = fn;
+      if (ln && !str(cu.lastname) ) cu.lastname = ln;
+      if (np && normalizePhone(cu.phone) !== np) cu.phone = phone;
+      if (email && !str(cu.email)) cu.email = str(email).trim().toLowerCase();
+      cu.updated_at = new Date().toISOString();
+      await db.write();
+    }
+    return cl;
+  }
+  const u = await createUser({
+    role: 'client', firstname: str(firstname).trim(), lastname: str(lastname).trim(),
+    phone: str(phone).trim(), email: str(email).trim() ? str(email).trim().toLowerCase() : null,
+    password_hash: '!',
+  });
   return insert('clients', { user_id: u.id, loyalty_balance: 0, notes: null });
 }
 

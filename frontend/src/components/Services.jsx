@@ -1,9 +1,9 @@
 const FALLBACK_IMG = {
-  1: '/assets/master-elena-rossi.png',
-  2: '/assets/about-interior.png',
+  1: '/assets/asset-5b978307.png',
+  2: '/assets/asset-798b2c16.png',
   3: '/assets/asset-5b978307.png',
   4: '/assets/asset-798b2c16.png',
-  5: '/assets/master-marcus-thorne.png',
+  5: '/assets/asset-5b978307.png',
 };
 
 export default function Services({ categories }) {
