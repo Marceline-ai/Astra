@@ -222,6 +222,12 @@ app.get('/api/admin/bookings', ...A, async (req, res) => {
   res.json(await repo.listBookings({ date: req.query.date, master_id: req.query.master_id, status: req.query.status }));
 });
 
+// Список клиентов (админ): имя, телефон, число записей. Раньше эндпоинт
+// отсутствовал и возвращал HTML-ошибку "Cannot GET" вместо JSON.
+app.get('/api/admin/clients', ...A, async (req, res) => {
+  res.json(await repo.listClients({ search: req.query.search }));
+});
+
 app.get('/api/admin/bookings/:id', ...A, async (req, res) => {
   const b = await repo.getBooking(req.params.id);
   if (!b) return res.status(404).json({ error: 'not_found' });

@@ -1,0 +1,806 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "role": "master",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:42.997Z",
+      "updated_at": "2026-10-27T16:09:42.998Z",
+      "firstname": "Elena",
+      "lastname": "Rossi",
+      "email": "elenarossi@astra.com",
+      "phone": null,
+      "password_hash": "$2b$10$cAlwboJ2TCPI.vd8FC9XyugTHptPAvgkBT5vCBv8puujdZLT6MV.W",
+      "avatar_url": "/assets/master-elena-rossi.png"
+    },
+    {
+      "id": 2,
+      "role": "master",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:43.086Z",
+      "updated_at": "2026-10-27T16:09:43.086Z",
+      "firstname": "Marcus",
+      "lastname": "Thorne",
+      "email": "marcusthorne@astra.com",
+      "phone": null,
+      "password_hash": "$2b$10$rbZBL9VGxWTHpo6zbUjFcum3h9UTTFyqcUgnUkCVAZpKYoUe9uHci",
+      "avatar_url": "/assets/master-marcus-thorne.png"
+    },
+    {
+      "id": 3,
+      "role": "master",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:43.172Z",
+      "updated_at": "2026-10-27T16:09:43.172Z",
+      "firstname": "Sarah",
+      "lastname": "Jenkins",
+      "email": "sarahjenkins@astra.com",
+      "phone": null,
+      "password_hash": "$2b$10$vLbWCz3oLaYHk99GNT3M/OLT3M3h51JklNj7e3szWrSFgYP9NrVhm",
+      "avatar_url": "/assets/master-sarah-jenkins.png"
+    },
+    {
+      "id": 4,
+      "role": "super_admin",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:43.259Z",
+      "updated_at": "2026-10-27T16:09:43.259Z",
+      "firstname": "Anna",
+      "lastname": "Velichko",
+      "email": "admin@astra.com",
+      "phone": "+15550000001",
+      "password_hash": "$2b$10$vqQAQ6pyo5TTGVjWS.5TKu8oZpyL34Ai8ccAUywd0zX5oLt3TArBi"
+    },
+    {
+      "id": 5,
+      "role": "manager",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:43.259Z",
+      "updated_at": "2026-10-27T16:09:43.259Z",
+      "firstname": "Irina",
+      "lastname": "Manager",
+      "email": "salon@astra.com",
+      "phone": "+15550000002",
+      "password_hash": "$2b$10$vqQAQ6pyo5TTGVjWS.5TKu8oZpyL34Ai8ccAUywd0zX5oLt3TArBi"
+    },
+    {
+      "id": 6,
+      "role": "client",
+      "is_active": true,
+      "created_at": "2026-10-27T16:09:43.259Z",
+      "updated_at": "2026-10-27T16:09:43.259Z",
+      "firstname": "Olivia",
+      "lastname": "Martin",
+      "phone": "+15551230000",
+      "email": "olivia@example.com",
+      "password_hash": "!"
+    },
+    {
+      "id": 7,
+      "role": "client",
+      "is_active": true,
+      "created_at": "2026-10-31T09:56:34.809Z",
+      "updated_at": "2026-10-31T09:56:42.138Z",
+      "firstname": "Иван",
+      "lastname": "Петров",
+      "phone": "+7 (999) 111-22-33",
+      "email": null,
+      "password_hash": "!"
+    },
+    {
+      "id": 8,
+      "role": "client",
+      "is_active": true,
+      "created_at": "2026-10-31T09:56:42.112Z",
+      "updated_at": "2026-10-31T09:56:42.112Z",
+      "firstname": "Мария",
+      "lastname": "Сидорова",
+      "phone": "89992223344",
+      "email": null,
+      "password_hash": "!"
+    },
+    {
+      "id": 9,
+      "role": "client",
+      "firstname": "Elena",
+      "lastname": "Kuznetsova",
+      "email": null,
+      "phone": "+7 (900) 123-45-67",
+      "password_hash": "!",
+      "is_active": true,
+      "created_at": "2026-10-31T09:57:27.213Z",
+      "updated_at": "2026-10-31T09:57:27.213Z"
+    },
+    {
+      "id": 12,
+      "role": "client",
+      "firstname": "Elena",
+      "lastname": "Kuznetsova",
+      "email": null,
+      "phone": "+7 (900) 123-45-67",
+      "password_hash": "!",
+      "is_active": true,
+      "created_at": "2026-10-31T09:57:27.213Z",
+      "updated_at": "2026-10-31T09:57:27.213Z"
+    },
+    {
+      "id": 13,
+      "role": "client",
+      "firstname": "Dmitry",
+      "lastname": "Orlov",
+      "email": null,
+      "phone": "+7 (900) 765-43-21",
+      "password_hash": "!",
+      "is_active": true,
+      "created_at": "2026-10-31T09:57:27.213Z",
+      "updated_at": "2026-10-31T09:57:27.213Z"
+    }
+  ],
+  "clients": [
+    {
+      "id": 1,
+      "user_id": 6,
+      "loyalty_balance": 0,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "user_id": 7,
+      "loyalty_balance": 0,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "user_id": 8,
+      "loyalty_balance": 0,
+      "notes": null
+    },
+    {
+      "id": 4,
+      "user_id": 9,
+      "loyalty_balance": 0,
+      "notes": null
+    },
+    {
+      "id": 6,
+      "user_id": 13,
+      "loyalty_balance": 0,
+      "notes": null
+    }
+  ],
+  "masters": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "speciality": "Lead Stylist",
+      "bio": "12 лет опыта, топ-стилист Astra. Стрижки, окрашивание, вечерние укладки.",
+      "photo_url": "/assets/master-elena-rossi.png",
+      "rating_avg": 4.9
+    },
+    {
+      "id": 2,
+      "user_id": 2,
+      "speciality": "Master Barber",
+      "bio": "Классическая и современная мужская парикмахерия, работа с бородой.",
+      "photo_url": "/assets/master-marcus-thorne.png",
+      "rating_avg": 4.8
+    },
+    {
+      "id": 3,
+      "user_id": 3,
+      "speciality": "Makeup Artist",
+      "bio": "Макияж, brow&lash-сервис, образы для особых случаев.",
+      "photo_url": "/assets/master-sarah-jenkins.png",
+      "rating_avg": 4.9
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Стрижки и укладки",
+      "description": "Haircuts & Styling — авторские стрижки, окрашивание и укладки любой сложности",
+      "image_url": "/assets/asset-5b978307.png",
+      "sort_order": 1
+    },
+    {
+      "id": 2,
+      "name": "Ногтевой сервис",
+      "description": "Nail Service — маникюр, педикюр и покрытие гель-лаком премиум-классами",
+      "image_url": "/assets/asset-798b2c16.png",
+      "sort_order": 2
+    },
+    {
+      "id": 3,
+      "name": "Browbar",
+      "description": "Брови и ресницы — коррекция, ламинирование и наращивание",
+      "image_url": "/assets/asset-5b978307.png",
+      "sort_order": 3
+    },
+    {
+      "id": 4,
+      "name": "Моментальный загар",
+      "description": "Spray Tan — безопасный студийный загар за один визит",
+      "image_url": "/assets/asset-798b2c16.png",
+      "sort_order": 4
+    },
+    {
+      "id": 5,
+      "name": "Мужской сервис",
+      "description": "Men's Grooming — барбер-услуги: стрижки, бороды, бритьё опасной бритвой",
+      "image_url": "/assets/asset-5b978307.png",
+      "sort_order": 5
+    }
+  ],
+  "services": [
+    {
+      "id": 1,
+      "category_id": 1,
+      "name": "Женская стрижка",
+      "description": null,
+      "price": 3500,
+      "duration_minutes": 60,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "category_id": 1,
+      "name": "Мужская стрижка",
+      "description": null,
+      "price": 2500,
+      "duration_minutes": 45,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "category_id": 1,
+      "name": "Укладка / вечерний образ",
+      "description": null,
+      "price": 4000,
+      "duration_minutes": 90,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "category_id": 1,
+      "name": "Окрашивание в одну технику",
+      "description": null,
+      "price": 6500,
+      "duration_minutes": 120,
+      "is_active": true
+    },
+    {
+      "id": 5,
+      "category_id": 2,
+      "name": "Маникюр + гель-лак",
+      "description": null,
+      "price": 3000,
+      "duration_minutes": 90,
+      "is_active": true
+    },
+    {
+      "id": 6,
+      "category_id": 2,
+      "name": "Педикюр",
+      "description": null,
+      "price": 3500,
+      "duration_minutes": 90,
+      "is_active": true
+    },
+    {
+      "id": 7,
+      "category_id": 3,
+      "name": "Коррекция и окрашивание бровей",
+      "description": null,
+      "price": 2200,
+      "duration_minutes": 45,
+      "is_active": true
+    },
+    {
+      "id": 8,
+      "category_id": 3,
+      "name": "Ламинирование ресниц",
+      "description": null,
+      "price": 2800,
+      "duration_minutes": 60,
+      "is_active": true
+    },
+    {
+      "id": 9,
+      "category_id": 4,
+      "name": "Моментальный загар (Body)",
+      "description": null,
+      "price": 3200,
+      "duration_minutes": 30,
+      "is_active": true
+    },
+    {
+      "id": 10,
+      "category_id": 5,
+      "name": "Моделирование бороды",
+      "description": null,
+      "price": 2000,
+      "duration_minutes": 45,
+      "is_active": true
+    },
+    {
+      "id": 11,
+      "category_id": 5,
+      "name": "Бритьё опасной бритвой",
+      "description": null,
+      "price": 2500,
+      "duration_minutes": 60,
+      "is_active": true
+    }
+  ],
+  "master_services": [
+    {
+      "master_id": 1,
+      "service_id": 1
+    },
+    {
+      "master_id": 1,
+      "service_id": 2
+    },
+    {
+      "master_id": 2,
+      "service_id": 2
+    },
+    {
+      "master_id": 1,
+      "service_id": 3
+    },
+    {
+      "master_id": 3,
+      "service_id": 3
+    },
+    {
+      "master_id": 1,
+      "service_id": 4
+    },
+    {
+      "master_id": 3,
+      "service_id": 5
+    },
+    {
+      "master_id": 3,
+      "service_id": 6
+    },
+    {
+      "master_id": 3,
+      "service_id": 7
+    },
+    {
+      "master_id": 3,
+      "service_id": 8
+    },
+    {
+      "master_id": 3,
+      "service_id": 9
+    },
+    {
+      "master_id": 2,
+      "service_id": 10
+    },
+    {
+      "master_id": 2,
+      "service_id": 11
+    }
+  ],
+  "schedules": [
+    {
+      "id": 1,
+      "master_id": 1,
+      "day_of_week": "monday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 2,
+      "master_id": 1,
+      "day_of_week": "tuesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 3,
+      "master_id": 1,
+      "day_of_week": "wednesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 4,
+      "master_id": 1,
+      "day_of_week": "thursday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 5,
+      "master_id": 1,
+      "day_of_week": "friday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 6,
+      "master_id": 1,
+      "day_of_week": "saturday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 7,
+      "master_id": 2,
+      "day_of_week": "monday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 8,
+      "master_id": 2,
+      "day_of_week": "tuesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 9,
+      "master_id": 2,
+      "day_of_week": "wednesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 10,
+      "master_id": 2,
+      "day_of_week": "thursday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 11,
+      "master_id": 2,
+      "day_of_week": "friday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 12,
+      "master_id": 2,
+      "day_of_week": "saturday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 13,
+      "master_id": 3,
+      "day_of_week": "monday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 14,
+      "master_id": 3,
+      "day_of_week": "tuesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 15,
+      "master_id": 3,
+      "day_of_week": "wednesday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 16,
+      "master_id": 3,
+      "day_of_week": "thursday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 17,
+      "master_id": 3,
+      "day_of_week": "friday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    },
+    {
+      "id": 18,
+      "master_id": 3,
+      "day_of_week": "saturday",
+      "start_time": "09:00",
+      "end_time": "20:00",
+      "break_start": "14:00",
+      "break_end": "15:00"
+    }
+  ],
+  "schedule_exceptions": [],
+  "bookings": [
+    {
+      "id": 1,
+      "client_id": 4,
+      "master_id": 1,
+      "service_id": 1,
+      "start_at": "2026-10-31T10:00:00.000Z",
+      "end_at": "2026-10-31T11:00:00.000Z",
+      "status": "confirmed",
+      "total_price": 3500,
+      "source": "web",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "created_at": "2026-10-27T16:09:43.260Z",
+      "updated_at": "2026-10-27T16:09:43.260Z"
+    },
+    {
+      "id": 2,
+      "client_id": 4,
+      "master_id": 3,
+      "service_id": 5,
+      "start_at": "2026-10-31T11:30:00.000Z",
+      "end_at": "2026-10-31T13:00:00.000Z",
+      "status": "pending",
+      "total_price": 3000,
+      "source": "web",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "created_at": "2026-10-27T16:09:43.260Z",
+      "updated_at": "2026-10-27T16:09:43.260Z"
+    },
+    {
+      "id": 3,
+      "client_id": 6,
+      "master_id": 2,
+      "service_id": 10,
+      "start_at": "2026-10-31T13:00:00.000Z",
+      "end_at": "2026-10-31T13:45:00.000Z",
+      "status": "completed",
+      "total_price": 2000,
+      "source": "web",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "created_at": "2026-10-27T16:09:43.260Z",
+      "updated_at": "2026-10-27T16:09:43.260Z"
+    },
+    {
+      "id": 4,
+      "client_id": 4,
+      "master_id": 1,
+      "service_id": 3,
+      "start_at": "2026-11-01T09:30:00.000Z",
+      "end_at": "2026-11-01T11:00:00.000Z",
+      "status": "pending",
+      "total_price": 4000,
+      "source": "web",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "created_at": "2026-10-27T16:09:43.260Z",
+      "updated_at": "2026-10-27T16:09:43.260Z"
+    },
+    {
+      "id": 5,
+      "client_id": 4,
+      "master_id": 3,
+      "service_id": 9,
+      "start_at": "2026-11-01T15:00:00.000Z",
+      "end_at": "2026-11-01T15:30:00.000Z",
+      "status": "confirmed",
+      "total_price": 3200,
+      "source": "web",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "created_at": "2026-10-27T16:09:43.260Z",
+      "updated_at": "2026-10-27T16:09:43.260Z"
+    },
+    {
+      "id": 6,
+      "status": "pending",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "source": "web",
+      "created_at": "2026-10-31T09:56:34.811Z",
+      "updated_at": "2026-10-31T09:56:34.811Z",
+      "client_id": 2,
+      "master_id": 1,
+      "service_id": 1,
+      "start_at": "2026-11-10T09:00:00.000Z",
+      "end_at": "2026-11-10T10:00:00.000Z",
+      "total_price": 3500
+    },
+    {
+      "id": 7,
+      "status": "pending",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "source": "web",
+      "created_at": "2026-10-31T09:56:42.113Z",
+      "updated_at": "2026-10-31T09:56:42.113Z",
+      "client_id": 3,
+      "master_id": 3,
+      "service_id": 5,
+      "start_at": "2026-11-10T09:00:00.000Z",
+      "end_at": "2026-11-10T10:30:00.000Z",
+      "total_price": 3000
+    },
+    {
+      "id": 8,
+      "status": "pending",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "source": "web",
+      "created_at": "2026-10-31T09:56:42.125Z",
+      "updated_at": "2026-10-31T09:56:42.125Z",
+      "client_id": 2,
+      "master_id": 3,
+      "service_id": 6,
+      "start_at": "2026-11-10T11:00:00.000Z",
+      "end_at": "2026-11-10T12:30:00.000Z",
+      "total_price": 3500
+    },
+    {
+      "id": 9,
+      "status": "pending",
+      "comment": null,
+      "discount_percent": 0,
+      "is_prepaid": false,
+      "source": "web",
+      "created_at": "2026-10-31T09:56:42.138Z",
+      "updated_at": "2026-10-31T09:56:42.138Z",
+      "client_id": 2,
+      "master_id": 1,
+      "service_id": 1,
+      "start_at": "2026-11-11T09:00:00.000Z",
+      "end_at": "2026-11-11T10:00:00.000Z",
+      "total_price": 3500
+    }
+  ],
+  "login_attempts": [],
+  "audit_logs": [
+    {
+      "id": 1,
+      "user_id": 4,
+      "actor_name": "Anna Velichko",
+      "role": "super_admin",
+      "action": "login",
+      "entity": "session",
+      "entity_id": 4,
+      "details": "Вход в админ-панель",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-27T16:14:01.302Z"
+    },
+    {
+      "id": 2,
+      "user_id": null,
+      "actor_name": "Иван Петров",
+      "role": "client",
+      "action": "booking_created",
+      "entity": "booking",
+      "entity_id": 6,
+      "details": "Онлайн-запись: Женская стрижка, 2026-11-10 09:00",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:56:34.812Z"
+    },
+    {
+      "id": 3,
+      "user_id": null,
+      "actor_name": "Мария Сидорова",
+      "role": "client",
+      "action": "booking_created",
+      "entity": "booking",
+      "entity_id": 7,
+      "details": "Онлайн-запись: Маникюр + гель-лак, 2026-11-10 09:00",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:56:42.114Z"
+    },
+    {
+      "id": 4,
+      "user_id": null,
+      "actor_name": "Иван Петров",
+      "role": "client",
+      "action": "booking_created",
+      "entity": "booking",
+      "entity_id": 8,
+      "details": "Онлайн-запись: Педикюр, 2026-11-10 11:00",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:56:42.126Z"
+    },
+    {
+      "id": 5,
+      "user_id": null,
+      "actor_name": "Иван",
+      "role": "client",
+      "action": "booking_created",
+      "entity": "booking",
+      "entity_id": 9,
+      "details": "Онлайн-запись: Женская стрижка, 2026-11-11 09:00",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:56:42.140Z"
+    },
+    {
+      "id": 6,
+      "user_id": 4,
+      "actor_name": "Anna Velichko",
+      "role": "super_admin",
+      "action": "login",
+      "entity": "session",
+      "entity_id": 4,
+      "details": "Вход в админ-панель",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:57:01.079Z"
+    },
+    {
+      "id": 7,
+      "user_id": 4,
+      "actor_name": "Anna Velichko",
+      "role": "super_admin",
+      "action": "login",
+      "entity": "session",
+      "entity_id": 4,
+      "details": "Вход в админ-панель",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:57:38.671Z"
+    },
+    {
+      "id": 8,
+      "user_id": 4,
+      "actor_name": "Anna Velichko",
+      "role": "super_admin",
+      "action": "login",
+      "entity": "session",
+      "entity_id": 4,
+      "details": "Вход в админ-панель",
+      "ip": "::ffff:127.0.0.1",
+      "created_at": "2026-10-31T09:58:00.098Z"
+    }
+  ],
+  "_sequence": {
+    "login_attempts": 4,
+    "audit_logs": 8,
+    "users": 13,
+    "clients": 6,
+    "bookings": 9
+  }
+}
